@@ -8,6 +8,12 @@ from PIL import Image
 import pytesseract
 import re
 
+#Before running this file upload the FirmataExpress file to arduino
+
+import time
+from pymata4 import pymata4
+
+
 #Detecting numberplate
 def number_plate_detection(img):
     def clean2_plate(plate):
@@ -143,12 +149,12 @@ array=[]
 
 dir = os.path.dirname(__file__)
 
-for img in glob.glob(dir+"/Images/*.jpeg") :
+for img in glob.glob(dir+"/demoImages/*.jpeg") :
     img=cv2.imread(img)
     
     img2 = cv2.resize(img, (600, 600))
     #cv2.imshow("Image of car ",img2)
-    cv2.waitKey(1000)
+    #cv2.waitKey(1000)
     #cv2.destroyAllWindows()
     
     
@@ -168,7 +174,7 @@ for i in array:
 print ("\n\n")    
 
 #Searching
-for img in glob.glob(dir+"/search/*.jpeg") :
+for img in glob.glob(dir+"/demoSearch/*.jpeg") :
     img=cv2.imread(img)
     
     number_plate=number_plate_detection(img)
@@ -178,10 +184,61 @@ print("The car number to search is:- ",res2)
     
 
 result = binarySearch(array,0,len(array)-1,res2)
+
+if result != -1:
+    #this is temporary condition
+    #replace it with actual result of the number plate recognition
+    initialCondition = True
+
 if result != -1: 
-	print ("\n\nThe Vehicle is allowed to visit." ) 
+	print ("\n\nThe Vehicle is allowed to visit." )
 else: 
     print ("\n\nThe Vehicle is  not allowed to visit.")
         
 
-    			
+   			
+gateStatus = False #set the initial condition of gate to be close
+gateCounter = 0 #monitor the open-close of gate, to exit the program
+
+trigPin = 7 #trigger pin
+echoPin = 6 #echo pin
+
+board = pymata4.Pymata4()#create instance of the board
+board.set_pin_mode_servo(3) #set the servo pin
+board.servo_write(3,0) #close the gate initially
+
+
+def ultrasonicFunction(data):
+    print("distance: ", data[2])
+    print(gateStatus)
+    #print(type(data[2]))
+    if(data[2] <= 10 and gateStatus == False and initialCondition == True):
+        gateOpen(board,3)
+    if(data[2] > 10 and gateStatus == True):
+        gateClose(board,3)
+
+def gateOpen(my_board, pin):
+    # set the servo to 90 degrees
+    my_board.servo_write(pin, 90)
+    global gateStatus
+    gateStatus = True
+    gateCounter = 1
+    time.sleep(1)
+
+def gateClose(my_board, pin):
+    # set the servo to 0 degrees
+    time.sleep(2)
+    my_board.servo_write(pin, 0)
+    global gateStatus
+    gateStatus = False
+    if(gateCounter == 1):
+        gateCounter = -1
+    time.sleep(1)
+
+board.set_pin_mode_sonar(trigPin,echoPin,ultrasonicFunction)#set the ultrasonic sensor
+
+while True:
+    if(gateCounter == -1):
+        break
+    time.sleep(3)
+    board.sonar_read(trigPin)
